@@ -2,12 +2,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
+import type React from "react"
+
 import { Suspense, useRef, useState, useEffect } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import * as THREE from "three"
-import { Environment, Line } from "@react-three/drei"
+import { Environment } from "@react-three/drei"
 import { EffectComposer, Bloom, ChromaticAberration } from "@react-three/postprocessing"
 import { BlendFunction } from "postprocessing"
+import { GameAudio } from "./game-audio"
 
 // Virtual Joystick Component
 function VirtualJoystick({ setControls }: { setControls: (controls: { steering: number; throttle: number }) => void }) {
@@ -148,7 +151,15 @@ function VirtualJoystick({ setControls }: { setControls: (controls: { steering: 
 }
 
 // Drift smoke particle system
-function DriftSmoke({ position, isActive, direction }: { position: { x: number; y: number; z: number }; isActive: boolean; direction: { x: number; y: number; z: number } }) {
+function DriftSmoke({
+  position,
+  isActive,
+  direction,
+}: {
+  position: { x: number; y: number; z: number }
+  isActive: boolean
+  direction: { x: number; y: number; z: number }
+}) {
   const particles = useRef<THREE.Points>(null)
   const count = 100
   const [positions, setPositions] = useState(() => {
@@ -272,12 +283,12 @@ function DriftSmoke({ position, isActive, direction }: { position: { x: number; 
     setVelocities(velocitiesArray)
 
     // Update geometry
-    particles.current.geometry.attributes.position.array.set(positionsArray);
-        particles.current.geometry.attributes.position.needsUpdate = true
-        particles.current.geometry.attributes.size.array.set(sizesArray);
-            particles.current.geometry.attributes.size.needsUpdate = true
-        particles.current.geometry.attributes.opacity.array.set(opacitiesArray);
-            particles.current.geometry.attributes.opacity.needsUpdate = true
+    particles.current.geometry.attributes.position.array.set(positionsArray)
+    particles.current.geometry.attributes.position.needsUpdate = true
+    particles.current.geometry.attributes.size.array.set(sizesArray)
+    particles.current.geometry.attributes.size.needsUpdate = true
+    particles.current.geometry.attributes.opacity.array.set(opacitiesArray)
+    particles.current.geometry.attributes.opacity.needsUpdate = true
   })
 
   // Define shader code as strings
@@ -328,39 +339,39 @@ function DriftSmoke({ position, isActive, direction }: { position: { x: number; 
 // Neon drift trail effect
 function NeonTrail({ positions, isActive, color }: { positions: THREE.Vector3[]; isActive: boolean; color: string }) {
   // Explicitly type the ref as THREE.Line
-  
-  const trailRef = useRef<THREE.Line>(null); // Removed | null since useRef defaults to null
-  const maxPoints = 50;
+
+  const trailRef = useRef<THREE.Line>(null) // Removed | null since useRef defaults to null
+  const maxPoints = 50
   const [points, setPoints] = useState<THREE.Vector3[]>(() => {
     return Array(maxPoints)
       .fill(new THREE.Vector3(0, 0.1, 0))
-      .map(() => new THREE.Vector3(0, 0.1, 0));
-  });
+      .map(() => new THREE.Vector3(0, 0.1, 0))
+  })
 
   useFrame(() => {
-    if (!trailRef.current || !isActive) return;
+    if (!trailRef.current || !isActive) return
 
     // Update trail points
-    const newPoints = [...points];
+    const newPoints = [...points]
 
     // Shift all points down
     for (let i = newPoints.length - 1; i > 0; i--) {
-      newPoints[i].copy(newPoints[i - 1]);
+      newPoints[i].copy(newPoints[i - 1])
     }
 
     // Add new point at the front
     if (positions && positions.length > 0) {
-      newPoints[0].copy(positions[0]);
+      newPoints[0].copy(positions[0])
     }
 
-    setPoints(newPoints);
+    setPoints(newPoints)
 
     // Update geometry
     if (trailRef.current.geometry) {
-      trailRef.current.geometry.setFromPoints(newPoints);
-      trailRef.current.geometry.attributes.position.needsUpdate = true;
+      trailRef.current.geometry.setFromPoints(newPoints)
+      trailRef.current.geometry.attributes.position.needsUpdate = true
     }
-  });
+  })
 
   return (
     // @ts-expect-error
@@ -368,7 +379,7 @@ function NeonTrail({ positions, isActive, color }: { positions: THREE.Vector3[];
       <bufferGeometry />
       <lineBasicMaterial color={color} linewidth={3} transparent opacity={0.8} />
     </line>
-  );
+  )
 }
 // Improved realistic car implementation with no flipping
 function RealisticCar({
@@ -377,10 +388,10 @@ function RealisticCar({
   onFallOff,
   gameKey,
 }: {
-  setScore: React.Dispatch<React.SetStateAction<number>>;
-  joystickControls: { steering: number; throttle: number };
-  onFallOff: () => void;
-  gameKey: number;
+  setScore: React.Dispatch<React.SetStateAction<number>>
+  joystickControls: { steering: number; throttle: number }
+  onFallOff: () => void
+  gameKey: number
 }) {
   // Visual representation of the car (separate from physics)
   const carVisualRef = useRef<THREE.Group>(null)
@@ -394,6 +405,7 @@ function RealisticCar({
   const [wheelRotation, setWheelRotation] = useState(0)
   const [wheelSpin, setWheelSpin] = useState(0)
   const [isDrifting, setIsDrifting] = useState(false)
+  const [isCollecting, setIsCollecting] = useState(false)
 
   // Previous state for smooth interpolation
   const prevPosition = useRef(new THREE.Vector3(0, 0.5, 0))
@@ -702,6 +714,10 @@ function RealisticCar({
           setCollectedPoints(newCollected)
           setScore((prev: number) => prev + 100)
 
+          // Set collecting state for audio
+          setIsCollecting(true)
+          setTimeout(() => setIsCollecting(false), 300)
+
           // Boost speed slightly when collecting a point
           setSpeed((prev) => Math.min(maxSpeed, prev + 5))
         }
@@ -792,8 +808,14 @@ function RealisticCar({
 
       {/* Neon trails */}
       <NeonTrail positions={[leftWheelPos]} isActive={isDrifting && Math.abs(speed) > 15} color="#ff00ff" />
-
       <NeonTrail positions={[rightWheelPos]} isActive={isDrifting && Math.abs(speed) > 15} color="#ff00ff" />
+      <GameAudio
+        isDrifting={isDrifting}
+        speed={speed}
+        isGameOver={false}
+        isCollecting={isCollecting}
+        isGameStarted={true}
+      />
     </>
   )
 }
@@ -957,7 +979,19 @@ function GameOverScreen({ score, highScore, onRestart }: { score: number; highSc
 }
 
 // Main Game Scene
-function GameScene({ score, setScore, joystickControls, onFallOff, gameKey }: { score: number; setScore: React.Dispatch<React.SetStateAction<number>>; joystickControls: { steering: number; throttle: number }; onFallOff: () => void; gameKey: number }) {
+function GameScene({
+  score,
+  setScore,
+  joystickControls,
+  onFallOff,
+  gameKey,
+}: {
+  score: number
+  setScore: React.Dispatch<React.SetStateAction<number>>
+  joystickControls: { steering: number; throttle: number }
+  onFallOff: () => void
+  gameKey: number
+}) {
   return (
     <>
       <ambientLight intensity={0.2} />
@@ -1096,7 +1130,15 @@ const CyberpunkDriftingGame = () => {
 
       {/* Game tips that appear and fade */}
       <GameTips />
-
+      {gameStarted && (
+        <GameAudio
+          isDrifting={false}
+          speed={0}
+          isGameOver={gameOver}
+          isCollecting={false}
+          isGameStarted={gameStarted}
+        />
+      )}
       {/* Game Over overlay */}
       {gameOver && <GameOverScreen score={score} highScore={highScore} onRestart={handleRestart} />}
     </div>
